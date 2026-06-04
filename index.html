@@ -204,36 +204,44 @@ apiKey: "rzp_test_SxUokgIwWRlRvH",
         }
     });
 
-    // Handle Razorpay Payment Click
+    // Handle Razorpay Payment Click Safely
     document.getElementById('payButton').onclick = function(e){
-        // Ask for their name before checkout to show on leader board
         let userName = prompt("Enter your name for the Leaderboard (or leave blank for Anonymous):");
-        if (userName === null) return; // User canceled the payment button action
+        if (userName === null) return; 
         if (userName.trim() === "") userName = "Anonymous";
 
         var options = {
-            "key": "rzp_test_SxUokgIwWRlRvH", 
+            "key": "YOUR_RAZORPAY_KEY_ID", 
             "amount": "500", 
             "currency": "INR",
             "name": "The Golden Vault",
             "description": "Social Experiment Entry",
             "handler": async function (response){
-                localStorage.setItem('vault_unlocked', 'true');
-                isUnlocked = true;
-                
-                // Update overall total
-                await updateDoc(doc(db, "stats", "vault"), {
-                    totalAmount: increment(5)
-                });
-                
-                // Add person to leaderboard database list
-                await addDoc(collection(db, "contributors"), {
-                    name: userName,
-                    amount: 5,
-                    timestamp: new Date()
-                });
-                
-                window.location.reload(); 
+                // CRUCIAL SECURITY CHECK: Only unlock if a valid payment ID is returned
+                if (response.razorpay_payment_id) {
+                    
+                    // 1. Save unlock state to this specific browser
+                    localStorage.setItem('vault_unlocked', 'true');
+                    isUnlocked = true;
+                    
+                    // 2. Update overall total in database
+                    await updateDoc(doc(db, "stats", "vault"), {
+                        totalAmount: increment(5)
+                    });
+                    
+                    // 3. Add person to leaderboard database list
+                    await addDoc(collection(db, "contributors"), {
+                        name: userName,
+                        amount: 5,
+                        timestamp: new Date()
+                    });
+                    
+                    // 4. Reload page to cleanly show unblurred data
+                    window.location.reload(); 
+                } else {
+                    // If they closed it or it failed, do absolutely nothing
+                    alert("Payment not completed. Vault remains locked.");
+                }
             },
             "theme": { "color": "#ffcc00" }
         };
