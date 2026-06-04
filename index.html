@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Golden Vault | Social Experiment</title>
+    <style>
+        :root {
+            --gold: #ffcc00;
+            --dark-bg: #0a0a0a;
+            --glass: rgba(255, 255, 255, 0.05);
+        }
+
+        body {
+            background-color: var(--dark-bg);
+            color: white;
+            font-family: 'Inter', system-ui, sans-serif;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .main-container {
+            width: 100%;
+            max-width: 450px;
+            background: linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 100%);
+            border: 1px solid #333;
+            border-radius: 28px;
+            padding: 30px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            background: linear-gradient(to right, #fff, #888);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
+        }
+
+        .vault-display {
+            background: #000;
+            border: 1px solid var(--gold);
+            border-radius: 20px;
+            padding: 40px 20px;
+            margin: 25px 0;
+            position: relative;
+        }
+
+        .total-sum {
+            font-size: 3rem;
+            font-weight: 800;
+            color: var(--gold);
+            filter: blur(12px);
+            transition: 0.5s;
+        }
+
+        .unlocked .total-sum { filter: blur(0); }
+
+        /* Leaderboard Styling */
+        .leaderboard {
+            background: var(--glass);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 25px 0;
+            text-align: left;
+            border: 1px solid #222;
+        }
+
+        .leaderboard h3 { 
+            font-size: 0.9rem; 
+            color: var(--gold); 
+            margin-top: 0; 
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        
+        .entry {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            padding: 10px 0;
+            border-bottom: 1px solid #222;
+        }
+        .entry:last-child { border-bottom: none; }
+
+        .pay-btn {
+            background: linear-gradient(90deg, #ffcc00, #ff9900);
+            color: black;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(255, 204, 0, 0.4);
+            transition: 0.3s;
+            width: 100%;
+        }
+
+        .pay-btn:hover { transform: scale(1.02); }
+
+        .charity-note {
+            font-size: 0.75rem;
+            color: #888;
+            border-top: 1px solid #222;
+            padding-top: 20px;
+            line-height: 1.5;
+            text-align: left;
+        }
+        .gold-text { color: var(--gold); font-weight: bold; }
+    </style>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
+<body>
+
+<div class="main-container">
+    <div class="header">
+        <h1>THE GOLDEN VAULT</h1>
+        <p style="color: #666; font-size: 0.9rem;">Join the world's smallest exclusive club.</p>
+    </div>
+
+    <div class="vault-display" id="vaultContainer">
+        <div style="font-size: 0.7rem; letter-spacing: 2px; margin-bottom: 10px; color: #444;">ENCRYPTED TOTAL</div>
+        <div class="total-sum" id="mainCounter">₹ 0</div>
+        <div id="unlockMessage" style="margin-top: 10px; font-size: 0.8rem; color: var(--gold);">Unlock to see live collection</div>
+    </div>
+
+    <div class="leaderboard">
+        <h3>🏆 Top Contributors</h3>
+        <div id="leaderboardList">
+            <div style="color: #555; font-size: 0.85rem; text-align: center; padding: 10px 0;">Waiting for first contributor...</div>
+        </div>
+    </div>
+
+    <div style="margin: 30px 0;">
+        <button class="pay-btn" id="payButton">Contribute ₹5 & View</button>
+    </div>
+
+    <div class="charity-note">
+        <p><b>Note:</b> This is a social experiment. <span class="gold-text">10% of the total accumulated amount</span> is donated monthly to child education charities. Verified and secure.</p>
+        <p style="font-size: 0.6rem; opacity: 0.5;">SECURED BY RAZORPAY & FIREBASE</p>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, doc, onSnapshot, updateDoc, increment, collection, addDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    // PASTE YOUR FIREBASE CONFIG BOX BELOW:
+    const firebaseConfig = {
+apiKey: "rzp_test_SxUokgIwWRlRvH",
+  authDomain: "the-hidden-total-fc61f.firebaseapp.com",
+  projectId: "the-hidden-total-fc61f",
+  storageBucket: "the-hidden-total-fc61f.firebasestorage.app",
+  messagingSenderId: "418336426841",
+  appId: "1:418336426841:web:b8b13a79d0cca661b75a48"
+
+    
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let isUnlocked = localStorage.getItem('vault_unlocked') === 'true';
+
+    // 1. Listen to Vault Total Counter
+    onSnapshot(doc(db, "stats", "vault"), (snapshot) => {
+        if (snapshot.exists()) {
+            const data = snapshot.data();
+            const counterEl = document.getElementById('mainCounter');
+            const container = document.getElementById('vaultContainer');
+            
+            counterEl.innerText = "₹ " + data.totalAmount.toLocaleString();
+
+            if (isUnlocked) {
+                container.classList.add('unlocked');
+                document.getElementById('unlockMessage').innerText = "LIVE DATA UNLOCKED";
+                document.getElementById('payButton').style.display = 'none'; 
+            }
+        }
+    });
+
+    // 2. Listen to Top 5 Contributors Live
+    const leaderboardQuery = query(collection(db, "contributors"), orderBy("amount", "desc"), limit(5));
+    onSnapshot(leaderboardQuery, (snapshot) => {
+        const leaderboardList = document.getElementById('leaderboardList');
+        leaderboardList.innerHTML = ""; // Clear loader text
+        
+        let index = 1;
+        snapshot.forEach((doc) => {
+            const data = doc.data();
+            const entryDiv = document.createElement('div');
+            entryDiv.className = 'entry';
+            entryDiv.innerHTML = `<span>${index}. ${data.name}</span> <span class="gold-text">₹${data.amount}</span>`;
+            leaderboardList.appendChild(entryDiv);
+            index++;
+        });
+
+        if(snapshot.empty) {
+            leaderboardList.innerHTML = `<div style="color: #555; font-size: 0.85rem; text-align: center; padding: 10px 0;">Be the first contributor!</div>`;
+        }
+    });
+
+    // Handle Razorpay Payment Click
+    document.getElementById('payButton').onclick = function(e){
+        // Ask for their name before checkout to show on leader board
+        let userName = prompt("Enter your name for the Leaderboard (or leave blank for Anonymous):");
+        if (userName === null) return; // User canceled the payment button action
+        if (userName.trim() === "") userName = "Anonymous";
+
+        var options = {
+            "key": "rzp_test_SxUokgIwWRlRvH", 
+            "amount": "500", 
+            "currency": "INR",
+            "name": "The Golden Vault",
+            "description": "Social Experiment Entry",
+            "handler": async function (response){
+                localStorage.setItem('vault_unlocked', 'true');
+                isUnlocked = true;
+                
+                // Update overall total
+                await updateDoc(doc(db, "stats", "vault"), {
+                    totalAmount: increment(5)
+                });
+                
+                // Add person to leaderboard database list
+                await addDoc(collection(db, "contributors"), {
+                    name: userName,
+                    amount: 5,
+                    timestamp: new Date()
+                });
+                
+                window.location.reload(); 
+            },
+            "theme": { "color": "#ffcc00" }
+        };
+        var rzp1 = new Razorpay(options);
+        rzp1.open();
+        e.preventDefault();
+    }
+</script>
+
+</body>
+</html>
