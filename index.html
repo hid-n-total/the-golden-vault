@@ -59,7 +59,6 @@
 
         .unlocked .total-sum { filter: blur(0); }
 
-        /* Leaderboard Styling */
         .leaderboard {
             background: var(--glass);
             border-radius: 15px;
@@ -124,7 +123,7 @@
 
     <div class="vault-display" id="vaultContainer">
         <div style="font-size: 0.7rem; letter-spacing: 2px; margin-bottom: 10px; color: #444;">ENCRYPTED TOTAL</div>
-        <div class="total-sum" id="mainCounter">₹ 0</div>
+        <div class="total-sum" id="mainCounter">₹ 00,000</div>
         <div id="unlockMessage" style="margin-top: 10px; font-size: 0.8rem; color: var(--gold);">Unlock to see live collection</div>
     </div>
 
@@ -149,16 +148,14 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getFirestore, doc, onSnapshot, updateDoc, increment, collection, addDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    // PASTE YOUR FIREBASE CONFIG BOX BELOW:
+    // 1. CORRECTION REQUIRED HERE: Replace "YOUR_FIREBASE_API_KEY" with your real Firebase web API Key string
     const firebaseConfig = {
-apiKey: "rzp_test_SxUokgIwWRlRvH",
-  authDomain: "the-hidden-total-fc61f.firebaseapp.com",
-  projectId: "the-hidden-total-fc61f",
-  storageBucket: "the-hidden-total-fc61f.firebasestorage.app",
-  messagingSenderId: "418336426841",
-  appId: "1:418336426841:web:b8b13a79d0cca661b75a48"
-
-    
+        apiKey: "AIzaSyBmGxlW_TtXFg8kTkcWQtqP57ZnE6Vb5vA", 
+        authDomain: "the-hidden-total-fc61f.firebaseapp.com",
+        projectId: "the-hidden-total-fc61f",
+        storageBucket: "the-hidden-total-fc61f.firebasestorage.app",
+        messagingSenderId: "418336426841",
+        appId: "1:418336426841:web:b8b13a79d0cca661b75a48"
     };
 
     const app = initializeApp(firebaseConfig);
@@ -166,28 +163,32 @@ apiKey: "rzp_test_SxUokgIwWRlRvH",
 
     let isUnlocked = localStorage.getItem('vault_unlocked') === 'true';
 
-    // 1. Listen to Vault Total Counter
+    // Real-time listener for the vault collection count
     onSnapshot(doc(db, "stats", "vault"), (snapshot) => {
         if (snapshot.exists()) {
             const data = snapshot.data();
             const counterEl = document.getElementById('mainCounter');
             const container = document.getElementById('vaultContainer');
             
-            counterEl.innerText = "₹ " + data.totalAmount.toLocaleString();
-
             if (isUnlocked) {
                 container.classList.add('unlocked');
+                counterEl.innerText = "₹ " + data.totalAmount.toLocaleString();
                 document.getElementById('unlockMessage').innerText = "LIVE DATA UNLOCKED";
                 document.getElementById('payButton').style.display = 'none'; 
+            } else {
+                container.classList.remove('unlocked');
+                counterEl.innerText = "₹ XX,XXX"; // Keeps value completely safe before validation
+                document.getElementById('unlockMessage').innerText = "Unlock to see live collection";
+                document.getElementById('payButton').style.display = 'block';
             }
         }
     });
 
-    // 2. Listen to Top 5 Contributors Live
+    // Real-time listener for leaderboard
     const leaderboardQuery = query(collection(db, "contributors"), orderBy("amount", "desc"), limit(5));
     onSnapshot(leaderboardQuery, (snapshot) => {
         const leaderboardList = document.getElementById('leaderboardList');
-        leaderboardList.innerHTML = ""; // Clear loader text
+        leaderboardList.innerHTML = ""; 
         
         let index = 1;
         snapshot.forEach((doc) => {
@@ -204,43 +205,40 @@ apiKey: "rzp_test_SxUokgIwWRlRvH",
         }
     });
 
-    // Handle Razorpay Payment Click Safely
+    // Handle checkout trigger
     document.getElementById('payButton').onclick = function(e){
-        let userName = prompt("Enter your name for the Leaderboard (or leave blank for Anonymous):");
+        let userName = prompt("Enter your name for the Leaderboard:");
         if (userName === null) return; 
         if (userName.trim() === "") userName = "Anonymous";
 
         var options = {
-            "key": "YOUR_RAZORPAY_KEY_ID", 
+            "key": "rzp_test_SxUokgIwWRlRvH", // 2. CORRECTED PLACE: Your Razorpay Key sits safely down here!
             "amount": "500", 
             "currency": "INR",
             "name": "The Golden Vault",
             "description": "Social Experiment Entry",
             "handler": async function (response){
-                // CRUCIAL SECURITY CHECK: Only unlock if a valid payment ID is returned
-                if (response.razorpay_payment_id) {
-                    
-                    // 1. Save unlock state to this specific browser
+                if (response && response.razorpay_payment_id) {
                     localStorage.setItem('vault_unlocked', 'true');
                     isUnlocked = true;
                     
-                    // 2. Update overall total in database
                     await updateDoc(doc(db, "stats", "vault"), {
                         totalAmount: increment(5)
                     });
                     
-                    // 3. Add person to leaderboard database list
                     await addDoc(collection(db, "contributors"), {
                         name: userName,
                         amount: 5,
                         timestamp: new Date()
                     });
                     
-                    // 4. Reload page to cleanly show unblurred data
                     window.location.reload(); 
-                } else {
-                    // If they closed it or it failed, do absolutely nothing
-                    alert("Payment not completed. Vault remains locked.");
+                }
+            },
+            "modal": {
+                "backdropclose": false, // Strict modal behavior
+                "ondismiss": function() {
+                    console.log("Window closed without payment validation processing.");
                 }
             },
             "theme": { "color": "#ffcc00" }
