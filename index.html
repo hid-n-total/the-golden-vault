@@ -123,14 +123,14 @@
 
     <div class="vault-display" id="vaultContainer">
         <div style="font-size: 0.7rem; letter-spacing: 2px; margin-bottom: 10px; color: #444;">ENCRYPTED TOTAL</div>
-        <div class="total-sum" id="mainCounter">₹ 0</div>
+        <div class="total-sum" id="mainCounter">₹ 00,000</div>
         <div id="unlockMessage" style="margin-top: 10px; font-size: 0.8rem; color: var(--gold);">Unlock to see live collection</div>
     </div>
 
     <div class="leaderboard">
         <h3>🏆 Top Contributors</h3>
         <div id="leaderboardList">
-            <div style="color: #555; font-size: 0.85rem; text-align: center; padding: 10px 0;">Loading leaderboard...</div>
+            <div style="color: #555; font-size: 0.85rem; text-align: center; padding: 10px 0;">Waiting for first contributor...</div>
         </div>
     </div>
 
@@ -139,7 +139,7 @@
     </div>
 
     <div class="charity-note">
-        <p><b>Note:</b> This is a social experiment. <span class="gold-text">50% of the total accumulated amount</span> is donated monthly to child education charities. Verified and secure.</p>
+        <p><b>Note:</b> This is a social experiment. <span class="gold-text">40% of the total accumulated amount</span> is donated monthly to child education charities, and the remaining balance powers our startup business dreams with your incredible support. Verified and secure.</p>
         <p style="font-size: 0.6rem; opacity: 0.5;">SECURED BY RAZORPAY & FIREBASE</p>
     </div>
 </div>
@@ -148,9 +148,9 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getFirestore, doc, onSnapshot, updateDoc, increment, collection, addDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    // REMEMBER: Paste your real Firebase Config mapping inside this area
+    // 1. MAKE SURE TO PASTE YOUR REAL FIREBASE API KEY HERE
     const firebaseConfig = {
-        apiKey: "AIzaSyBmGxlW_TtXFg8kTkcWQtqP57ZnE6Vb5vA", 
+        apiKey: "YOUR_FIREBASE_API_KEY", 
         authDomain: "the-hidden-total-fc61f.firebaseapp.com",
         projectId: "the-hidden-total-fc61f",
         storageBucket: "the-hidden-total-fc61f.firebasestorage.app",
@@ -211,7 +211,8 @@
             leaderboardList.innerHTML = `<div style="color: #555; font-size: 0.85rem; text-align: center; padding: 10px 0;">Be the first contributor!</div>`;
         }
     });
-document.getElementById('payButton').addEventListener('click', function(e) {
+
+    document.getElementById('payButton').addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation(); 
 
@@ -220,19 +221,20 @@ document.getElementById('payButton').addEventListener('click', function(e) {
         if (userName.trim() === "") userName = "Anonymous";
 
         var options = {
-            "key": "rzp_test_SxUokgIwWRlRvH", // Put your real rzp_live_ key here when launching!
+            "key": "rzp_test_SxUokgIwWRlRvH", // Remember to change to your rzp_live_ key later!
             "amount": "500", 
             "currency": "INR",
             "name": "The Golden Vault",
             "description": "Social Experiment Entry",
             
-            // This natively prioritizes UPI across all devices without breaking Test Mode
+            // REQUIREMENT 2: Natively requests and optimizes checkout flow for UPI apps (GPay/PhonePe/Paytm)
             "prefetch": {
                 "methods": ["upi"]
             },
             
             "handler": async function (response) {
                 if (response && response.razorpay_payment_id) {
+                    
                     await updateDoc(doc(db, "stats", "vault"), {
                         totalAmount: increment(5)
                     });
