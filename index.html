@@ -211,8 +211,7 @@
             leaderboardList.innerHTML = `<div style="color: #555; font-size: 0.85rem; text-align: center; padding: 10px 0;">Be the first contributor!</div>`;
         }
     });
-
-    document.getElementById('payButton').addEventListener('click', function(e) {
+document.getElementById('payButton').addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation(); 
 
@@ -221,43 +220,17 @@
         if (userName.trim() === "") userName = "Anonymous";
 
         var options = {
-            "key": "rzp_test_SxUokgIwWRlRvH", 
+            "key": "rzp_test_SxUokgIwWRlRvH", // Put your real rzp_live_ key here when launching!
             "amount": "500", 
             "currency": "INR",
             "name": "The Golden Vault",
             "description": "Social Experiment Entry",
             
-            // FIX 2: Hides contact details from appearing on the payment screen layout entirely
-            "hidden": {
-                "contact": true,
-                "email": false
+            // This natively prioritizes UPI across all devices without breaking Test Mode
+            "prefetch": {
+                "methods": ["upi"]
             },
-
-            // FIX 2 (Continued): Prefills a mock number silently in the background so Razorpay doesn't ask for it
-            "prefill": {
-                "name": userName,
-                "contact": "9999999999" 
-            },
-
-            // FIX 3: Corrected arrangement to explicitly bring native UPI front and center
-            "config": {
-                "display": {
-                    "blocks": {
-                        "upi": {
-                            "name": "Pay via UPI (Google Pay / PhonePe / Paytm)",
-                            "instruments": [
-                                {
-                                    "method": "upi"
-                                }
-                            ]
-                        }
-                    },
-                    "sequence": ["block.upi"],
-                    "preferences": {
-                        "show_default_blocks": false
-                    }
-                }
-            },
+            
             "handler": async function (response) {
                 if (response && response.razorpay_payment_id) {
                     await updateDoc(doc(db, "stats", "vault"), {
