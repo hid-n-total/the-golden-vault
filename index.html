@@ -226,15 +226,25 @@
             "currency": "INR",
             "name": "The Golden Vault",
             "description": "Social Experiment Entry",
-            // UPDATE 2 & 3: Force UPI as the method and completely disable the phone number field input request
-            "prefill": {
-                "contact": "" 
+            
+            // FIX 2: Hides contact details from appearing on the payment screen layout entirely
+            "hidden": {
+                "contact": true,
+                "email": false
             },
+
+            // FIX 2 (Continued): Prefills a mock number silently in the background so Razorpay doesn't ask for it
+            "prefill": {
+                "name": userName,
+                "contact": "9999999999" 
+            },
+
+            // FIX 3: Corrected arrangement to explicitly bring native UPI front and center
             "config": {
                 "display": {
                     "blocks": {
                         "upi": {
-                            "name": "UPI / Google Pay / PhonePe",
+                            "name": "Pay via UPI (Google Pay / PhonePe / Paytm)",
                             "instruments": [
                                 {
                                     "method": "upi"
