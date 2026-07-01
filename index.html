@@ -123,14 +123,14 @@
 
     <div class="vault-display" id="vaultContainer">
         <div style="font-size: 0.7rem; letter-spacing: 2px; margin-bottom: 10px; color: #444;">ENCRYPTED TOTAL</div>
-        <div class="total-sum" id="mainCounter">₹ 00,000</div>
+        <div class="total-sum" id="mainCounter">₹ 0</div>
         <div id="unlockMessage" style="margin-top: 10px; font-size: 0.8rem; color: var(--gold);">Unlock to see live collection</div>
     </div>
 
     <div class="leaderboard">
         <h3>🏆 Top Contributors</h3>
         <div id="leaderboardList">
-            <div style="color: #555; font-size: 0.85rem; text-align: center; padding: 10px 0;">Waiting for first contributor...</div>
+            <div style="color: #555; font-size: 0.85rem; text-align: center; padding: 10px 0;">Loading leaderboard...</div>
         </div>
     </div>
 
@@ -139,7 +139,7 @@
     </div>
 
     <div class="charity-note">
-        <p><b>Note:</b> This is a social experiment. <span class="gold-text">10% of the total accumulated amount</span> is donated monthly to child education charities. Verified and secure.</p>
+        <p><b>Note:</b> This is a social experiment. <span class="gold-text">50% of the total accumulated amount</span> is donated monthly to child education charities. Verified and secure.</p>
         <p style="font-size: 0.6rem; opacity: 0.5;">SECURED BY RAZORPAY & FIREBASE</p>
     </div>
 </div>
@@ -148,7 +148,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getFirestore, doc, onSnapshot, updateDoc, increment, collection, addDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    // 1. MAKE SURE TO PASTE YOUR REAL FIREBASE API KEY HERE
+    // REMEMBER: Paste your real Firebase Config mapping inside this area
     const firebaseConfig = {
         apiKey: "YOUR_FIREBASE_API_KEY", 
         authDomain: "the-hidden-total-fc61f.firebaseapp.com",
@@ -161,19 +161,15 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // CRUCIAL: Check if there is a successful URL redirect parameter from Razorpay
     const urlParams = new URLSearchParams(window.location.search);
     const paymentSuccessToken = urlParams.get('payment');
 
-    // Default state: ALWAYS LOCKED when they hit the URL normally
     let isUnlocked = false;
 
-    // If they just paid and the URL has our success token, unlock it!
     if (paymentSuccessToken === 'success') {
         isUnlocked = true;
     }
 
-    // 1. Listen to Vault Total Counter
     onSnapshot(doc(db, "stats", "vault"), (snapshot) => {
         if (snapshot.exists()) {
             const data = snapshot.data();
@@ -188,7 +184,6 @@
                 unlockMsg.innerText = "LIVE DATA UNLOCKED";
                 payBtn.style.display = 'none'; 
             } else {
-                // FORCE LOCK STATE ON EVERY FRESH VISIT
                 container.classList.remove('unlocked');
                 counterEl.innerText = "₹ XX,XXX"; 
                 unlockMsg.innerText = "Unlock to see live collection";
@@ -197,7 +192,6 @@
         }
     });
 
-    // 2. Listen to Top 5 Contributors Live
     const leaderboardQuery = query(collection(db, "contributors"), orderBy("amount", "desc"), limit(5));
     onSnapshot(leaderboardQuery, (snapshot) => {
         const leaderboardList = document.getElementById('leaderboardList');
@@ -218,7 +212,6 @@
         }
     });
 
-    // Handle Safe Razorpay Click explicitly bound ONLY to the button element
     document.getElementById('payButton').addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation(); 
@@ -233,11 +226,30 @@
             "currency": "INR",
             "name": "The Golden Vault",
             "description": "Social Experiment Entry",
+            // UPDATE 2 & 3: Force UPI as the method and completely disable the phone number field input request
+            "prefill": {
+                "contact": "" 
+            },
+            "config": {
+                "display": {
+                    "blocks": {
+                        "upi": {
+                            "name": "UPI / Google Pay / PhonePe",
+                            "instruments": [
+                                {
+                                    "method": "upi"
+                                }
+                            ]
+                        }
+                    },
+                    "sequence": ["block.upi"],
+                    "preferences": {
+                        "show_default_blocks": false
+                    }
+                }
+            },
             "handler": async function (response) {
-                // Strict check: Only execute if real payment ID is sent back
                 if (response && response.razorpay_payment_id) {
-                    
-                    // Update database metrics
                     await updateDoc(doc(db, "stats", "vault"), {
                         totalAmount: increment(5)
                     });
@@ -248,8 +260,6 @@
                         timestamp: new Date()
                     });
                     
-                    // REDIRECT back to the same page but append a temporary access token string
-                    // This forces a clean, state-safe unblur that disappears if they reload!
                     window.location.href = window.location.origin + window.location.pathname + "?payment=success";
                 }
             },
@@ -266,3 +276,6 @@
         rzp1.open();
     });
 </script>
+
+</body>
+</html>
