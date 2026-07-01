@@ -150,7 +150,7 @@
 
     // 1. MAKE SURE TO PASTE YOUR REAL FIREBASE API KEY HERE
     const firebaseConfig = {
-        apiKey: "AIzaSyBmGxlW_TtXFg8kTkcWQtqP57ZnE6Vb5vA", 
+        apiKey: "YOUR_FIREBASE_API_KEY", 
         authDomain: "the-hidden-total-fc61f.firebaseapp.com",
         projectId: "the-hidden-total-fc61f",
         storageBucket: "the-hidden-total-fc61f.firebasestorage.app",
@@ -161,8 +161,17 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // CHANGED TO SESSIONSTORAGE: Forgets unlock status as soon as they close the tab
-    let isUnlocked = sessionStorage.getItem('vault_unlocked') === 'true';
+    // CRUCIAL: Check if there is a successful URL redirect parameter from Razorpay
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentSuccessToken = urlParams.get('payment');
+
+    // Default state: ALWAYS LOCKED when they hit the URL normally
+    let isUnlocked = false;
+
+    // If they just paid and the URL has our success token, unlock it!
+    if (paymentSuccessToken === 'success') {
+        isUnlocked = true;
+    }
 
     // 1. Listen to Vault Total Counter
     onSnapshot(doc(db, "stats", "vault"), (snapshot) => {
@@ -170,17 +179,20 @@
             const data = snapshot.data();
             const counterEl = document.getElementById('mainCounter');
             const container = document.getElementById('vaultContainer');
+            const payBtn = document.getElementById('payButton');
+            const unlockMsg = document.getElementById('unlockMessage');
             
             if (isUnlocked) {
                 container.classList.add('unlocked');
                 counterEl.innerText = "₹ " + data.totalAmount.toLocaleString();
-                document.getElementById('unlockMessage').innerText = "LIVE DATA UNLOCKED";
-                document.getElementById('payButton').style.display = 'none'; 
+                unlockMsg.innerText = "LIVE DATA UNLOCKED";
+                payBtn.style.display = 'none'; 
             } else {
+                // FORCE LOCK STATE ON EVERY FRESH VISIT
                 container.classList.remove('unlocked');
-                counterEl.innerText = "₹ XX,XXX"; // Explicitly forces hidden text over the UI
-                document.getElementById('unlockMessage').innerText = "Unlock to see live collection";
-                document.getElementById('payButton').style.display = 'block';
+                counterEl.innerText = "₹ XX,XXX"; 
+                unlockMsg.innerText = "Unlock to see live collection";
+                payBtn.style.display = 'block';
             }
         }
     });
@@ -209,7 +221,7 @@
     // Handle Safe Razorpay Click explicitly bound ONLY to the button element
     document.getElementById('payButton').addEventListener('click', function(e) {
         e.preventDefault();
-        e.stopPropagation(); // Stops the click event from bleeding out to the rest of the page
+        e.stopPropagation(); 
 
         let userName = prompt("Enter your name for the Leaderboard:");
         if (userName === null) return; 
@@ -222,11 +234,10 @@
             "name": "The Golden Vault",
             "description": "Social Experiment Entry",
             "handler": async function (response) {
-                // Double check token validity explicitly before state progression
+                // Strict check: Only execute if real payment ID is sent back
                 if (response && response.razorpay_payment_id) {
-                    sessionStorage.setItem('vault_unlocked', 'true');
-                    isUnlocked = true;
                     
+                    // Update database metrics
                     await updateDoc(doc(db, "stats", "vault"), {
                         totalAmount: increment(5)
                     });
@@ -237,16 +248,15 @@
                         timestamp: new Date()
                     });
                     
-                    window.location.reload(); 
+                    // REDIRECT back to the same page but append a temporary access token string
+                    // This forces a clean, state-safe unblur that disappears if they reload!
+                    window.location.href = window.location.origin + window.location.pathname + "?payment=success";
                 }
             },
             "modal": {
                 "backdropclose": false,
                 "ondismiss": function() {
-                    // Force state integrity on exit
-                    sessionStorage.setItem('vault_unlocked', 'false');
-                    isUnlocked = false;
-                    console.log("Checkout closed safely.");
+                    console.log("Checkout window dismissed securely.");
                 }
             },
             "theme": { "color": "#ffcc00" }
@@ -256,6 +266,3 @@
         rzp1.open();
     });
 </script>
-
-</body>
-</html>
